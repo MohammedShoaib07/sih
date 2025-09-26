@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pothole Detection System </title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.15);
+      --glass-border: rgba(255, 255, 255, 0.2);
+      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0);
+      --primary-gradient: linear-gradient(145deg, #8b0d0de6 0%, rgb(0, 0, 0), #1a1a65 100%);
+      --secondary-gradient: linear-gradient(135deg, #d73fda00 0%);
+      --severity-high: #ff6b6b;
+      --severity-medium: #ffd166;
+      --severity-low: #06d6a0;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: var(--primary-gradient);
+      color: white;
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .container {
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 2.5rem;
+      margin: 20px 0;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    
+    .glass-panel {
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: var(--glass-shadow);
+      padding: 25px;
+      margin: 20px 0;
+    }
+    
+    .camera-container {
+      position: relative;
+      width: 100%;
+      border-radius: 15px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    
+    video {
+      width: 100%;
+      border-radius: 15px;
+      display: block;
+      transform: scaleX(-1); /* Mirror view*/
+      background: #000;
+      aspect-ratio: 4/3;
+    }
+    
+    button {
+      margin-top: 5px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.098);
+      color: #ffffff;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 4px rgba(255, 255, 255, 0);
+      width: 40%;
+    }
+    
+    button:hover {
+      transform:translate3d(-3px);
+      box-shadow: 0 6px 20px rgb(195, 59, 202);
+    }
+    
+    button:active {
+      transform: translateX(4px);
+    }
+    
+    #result {
+      width: 100%;
+      margin-top: 30px;
+      display: none;
+    }
+    
+    #outputImage {
+      width: 100%;
+      border-radius: 15px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      background: #000;
+      aspect-ratio: 4/3;
+      object-fit: contain;
+    }
+    
+    .detection-results {
+      margin-top: 20px;
+      text-align: left;
+    }
+    
+    .detection-item {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      font-size: 1rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .severity-high { color: var(--severity-high); font-weight: bold; }
+    .severity-medium { color: var(--severity-medium); }
+    .severity-low { color: var(--severity-low); }
+    
+    .loading {
+      display: none;
+      margin: 20px 0;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid rgb(255, 251, 0);
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .status-message {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+    
+    .location-info {
+      margin: 15px 0;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .form-input {
+      width: 50%;
+      padding: 12px 15px;
+      border-radius: 50px;
+      border: none;
+      background: rgba(255, 255, 255, 0.205);
+      color: rgb(255, 255, 255);
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+    
+    .form-input::placeholder {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .form-input:hover {
+      transform:translate3d(-3px);
+      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.619);
+    }
+    
+    .form-input:active {
+      transform: translateX(4px);
+    }
+    
+    .email-sent {
+      color: var(--severity-low);
+      margin-top: 10px;
+      text-align: center;
+      display: none;
+      font-weight: 500;
+    }
+    
+    .email-error {
+      color: var(--severity-high);
+      margin-top: 10px;
+      text-align: center;
+      display: none;
+      font-weight: 500;
+    }
+    
+    .map-link {
+      color: #f2ff00;
+      text-decoration: none;
+      margin-top: 5px;
+      display: inline-block;
+    }
+    
+    .map-link:hover {
+      text-decoration: underline;
+    }
+    
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+    }
+    
+    .high-color { background-color: var(--severity-high); }
+    .medium-color { background-color: var(--severity-medium); }
+    .low-color { background-color: var(--severity-low); }
+    
+    .location-denied {
+      color: var(--severity-high);
+      font-weight: 500;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      h1 { font-size: 2rem; }
+      .glass-panel { padding: 15px; }
+      .legend { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Pothole Detection System</h1>
+    
+    <div class="glass-panel">
+      <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="userEmail">Email for alerts:</label>
+        <input type="email" id="userEmail" class="form-input" placeholder="Enter your email" required>
+      </div>
+      
+      <button id="captureBtn">DETECT AND REPORT</button>
+      
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div class="status-message">Detecting potholes and generating report...</div>
+      </div>
+      
+      <div id="locationInfo" class="location-info" style="display:none;">
+        <div id="locationStatus">
+          Location captured: <span id="locationText"></span>
+          <a id="mapLink" class="map-link" target="_blank">View on map</a>
+        </div>
+        
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color high-color"></div>
+            <span>High Severity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color medium-color"></div>
+            <span>Medium Severity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color low-color"></div>
+            <span>Low Severity</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" class="glass-panel">
+      <h2>Detection Results</h2>
+      <img id="outputImage">
+      <div class="detection-results" id="outputText"></div>
+      <div id="emailStatus" class="email-sent">Report was successfully sent to the provided mail address!</div>
+      <div id="emailError" class="email-error"></div>
+    </div>
+  </div>
+
+  <script>
+    // Access webcam
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const captureBtn = document.getElementById('captureBtn');
+    const outputImage = document.getElementById('outputImage');
+    const outputText = document.getElementById('outputText');
+    const locationInfo = document.getElementById('locationInfo');
+    const locationStatus = document.getElementById('locationStatus');
+    const locationText = document.getElementById('locationText');
+    const mapLink = document.getElementById('mapLink');
+    const emailStatus = document.getElementById('emailStatus');
+    const emailError = document.getElementById('emailError');
+    
+    // Set canvas size to match video stream
+    function setupCamera() {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          video.onloadedmetadata = () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+          };
+        })
+        .catch(err => {
+          console.error("Error accessing camera:", err);
+          alert("Could not access camera. Please check permissions.");
+        });
+    }
+    
+    // Get location
+    async function getLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject("Geolocation not supported");
+          return;
+        }
+        
+        navigator.geolocation.getCurrentPosition(
+          position => {
+            const location = {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude
+            };
+            
+            // Show location info
+            locationText.textContent = 
+              `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
+            mapLink.href = 
+              `https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=18/${location.latitude}/${location.longitude}`;
+            locationInfo.style.display = 'block';
+            
+            resolve(location);
+          },
+          error => {
+            console.error("Error getting location:", error);
+            locationStatus.innerHTML = `
+              <div class="location-denied">
+                ⚠️ Location access denied. Map won't be included in report.
+              </div>
+            `;
+            locationInfo.style.display = 'block';
+            reject("Location access denied");
+          },
+          { 
+            timeout: 10000,
+            enableHighAccuracy: true,
+            maximumAge: 0
+          }
+        );
+      });
+    }
+    
+    // Capture image from video stream
+    captureBtn.onclick = async () => {
+      // Show loading state
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+      emailStatus.style.display = 'none';
+      emailError.style.display = 'none';
+      
+      try {
+        // Get email
+        const userEmail = document.getElementById('userEmail').value;
+        
+        if (!userEmail) {
+          alert("Please enter your email address");
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
+        
+        // Get location
+        let location = null;
+        try {
+          location = await getLocation();
+        } catch (err) {
+          console.log("Location not available:", err);
+          // Error is already shown in UI
+        }
+        
+        // Draw current video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert canvas to blob and create form data
+        canvas.toBlob(async blob => {
+          const formData = new FormData();
+          formData.append('image', blob, 'pothole_capture.jpg');
+          formData.append('email', userEmail);
+          
+          if (location) {
+            formData.append('latitude', location.latitude);
+            formData.append('longitude', location.longitude);
+          }
+          
+          try {
+            // Send to detection API
+            const res = await fetch('/detect', {
+              method: 'POST',
+              body: formData
+            });
+            
+            const data = await res.json();
+            
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            
+            // Display results
+            outputImage.src = data.image_url;
+            
+            if (data.detections.length === 0) {
+              outputText.innerHTML = `<div class="detection-item">🚫 No potholes detected, report is not sent.</div>`;
+            } else {
+              // Format detections with severity styling
+              outputText.innerHTML = data.detections.map(d => {
+                const severityClass = `severity-${d.severity.toLowerCase()}`;
+                return `
+                  <div class="detection-item">
+                    <span>Pothole detected</span>
+                    <span class="${severityClass}">${d.severity} severity (${Math.round(d.confidence * 100)}%)</span>
+                  </div>
+                `;
+              }).join('');
+            }
+            
+            // Show email status
+            if (data.email_sent) {
+              emailStatus.style.display = 'block';
+            } else if (data.email_error) {
+              emailError.textContent = `⚠️ Email failed: ${data.email_error}`;
+              emailError.style.display = 'block';
+            }
+            
+          } catch (err) {
+            console.error('Detection error:', err);
+            document.getElementById('loading').style.display = 'none';
+            outputText.innerHTML = `<div class="detection-item severity-high">⚠️ Error during detection</div>`;
+          }
+        }, 'image/jpeg');
+        
+      } catch (err) {
+        console.error('Capture error:', err);
+        document.getElementById('loading').style.display = 'none';
+        outputText.innerHTML = `<div class="detection-item severity-high">⚠️ Error capturing image</div>`;
+      }
+    };
+    
+    // Initialize camera on load
+    window.addEventListener('DOMContentLoaded', setupCamera);
+  </script>
+</body>
+</html>

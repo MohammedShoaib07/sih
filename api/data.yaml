@@ -1,0 +1,6 @@
+train: /content/drive/MyDrive/YOLOv8/Road hazard/train/images
+val: /content/drive/MyDrive/YOLOv8/Road hazard/valid/images
+
+
+nc: 1
+names: ['pothole']
