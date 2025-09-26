@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
-import { divIcon } from 'leaflet';
+import L, { divIcon } from 'leaflet';
 import { useAppStore } from '../store';
-import { Report } from '../types';
+import { Report, TextReport } from '../types';
 import Badge from './ui/Badge';
 import Button from './ui/Button';
 import MapFilterDropdown from './MapFilterDropdown';
 import { MapPin, Eye, ThumbsUp, ThumbsDown } from 'lucide-react';
+import PredictiveHeatmap from './PredictiveHeatmap';
 import 'leaflet/dist/leaflet.css';
+
+// Constants for marker styling
+const severityColors = {
+  high: '#ef4444',
+  medium: '#f59e0b',
+  low: '#10b981',
+};
+
+const statusOpacity = {
+  pending: 0.6,
+  verified: 1,
+  rejected: 0.3,
+};
 
 // Component to update map center when location changes
 const MapCenterUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
@@ -69,47 +83,45 @@ const createLocationIcon = (isGov: boolean) => {
   });
 };
 
-const createCustomIcon = (severity: string, status: string) => {
-  const severityColors = {
-    high: '#dc2626',
-    medium: '#f59e0b', 
-    low: '#22c55e'
-  };
+const createMarkerIcon = (report: Report | TextReport) => {
+  const isHighPriority = report.priority === 'high';
+  const isPothole = 'photo' in report;
   
-  const statusOpacity = {
-    pending: 0.7,
-    in_progress: 0.8,
-    resolved: 0.4,
-    rejected: 0.3
-  };
-
-  return divIcon({
+  return L.divIcon({
     html: `
       <div style="
-        width: 24px; 
-        height: 24px; 
-        background: ${severityColors[severity as keyof typeof severityColors] || severityColors.medium};
-        opacity: ${statusOpacity[status as keyof typeof statusOpacity] || statusOpacity.pending};
-        border: 2px solid white;
+        width: ${isHighPriority ? '32px' : '24px'};
+        height: ${isHighPriority ? '32px' : '24px'};
+        background: ${severityColors[report.severity as keyof typeof severityColors] || severityColors.medium};
+        opacity: ${statusOpacity[report.verified as keyof typeof statusOpacity] || statusOpacity.pending};
+        border: ${isHighPriority ? '3px' : '2px'} solid ${isHighPriority ? '#ff0000' : 'white'};
         border-radius: 50%;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        box-shadow: ${isHighPriority ? '0 0 8px rgba(255,0,0,0.5)' : '0 2px 4px rgba(0,0,0,0.2)'};
         display: flex;
         align-items: center;
         justify-content: center;
+        animation: ${isHighPriority ? 'pulse 2s infinite' : 'none'};
       ">
         <div style="
-          width: 8px;
-          height: 8px;
+          width: ${isPothole ? '8px' : '12px'};
+          height: ${isPothole ? '8px' : '12px'};
           background: white;
           border-radius: 50%;
-        "></div>
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          color: ${severityColors[report.severity as keyof typeof severityColors] || severityColors.medium};
+        ">
+          ${!isPothole ? ('issueType' in report ? report.issueType.charAt(0).toUpperCase() : '!') : ''}
+        </div>
       </div>
     `,
     className: 'custom-marker',
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
+    iconSize: [isHighPriority ? 32 : 24, isHighPriority ? 32 : 24],
+    iconAnchor: [isHighPriority ? 16 : 12, isHighPriority ? 16 : 12]
   });
-};
+}
 
 // MapControls component removed - replaced with MapFilterDropdown
 
@@ -299,7 +311,7 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
           <Marker
             key={report.id}
             position={[report.location.lat, report.location.lng]}
-            icon={createCustomIcon(report.severity, report.fixingStatus)}
+            icon={createMarkerIcon(report)}
           >
             <Popup>
               <ReportPopup
@@ -309,6 +321,11 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
             </Popup>
           </Marker>
         ))}
+
+        {/* Show heatmap for predicted hotspots */}
+        {centerLocation && showRadius && (
+          <PredictiveHeatmap location={centerLocation} />
+        )}
       </MapContainer>
 
       {/* Filter Dropdown */}

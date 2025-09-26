@@ -248,7 +248,7 @@ class EmailService:
                 </div>
 
                 <div class="footer">
-                    <p><strong>TECH TITANS</strong> - Images Processed using YOLOv8 Model</p>
+                    <p><strong>TEAM AURACODE</strong> - Images Processed using YOLOv8 Model</p>
                 </div>
             </div>
         </body>

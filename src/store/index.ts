@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, GovUser, Report, Badge } from '../types';
+import { User, GovUser, Report, Badge, TextReport, ScratchCard, PredictionData, TrendData } from '../types';
 
 
 export interface AppNotification {
@@ -23,6 +23,10 @@ interface AppState {
   govUser: GovUser | null;
   userEmail: string | null;
   reports: Report[];
+  textReports: TextReport[];
+  scratchCards: ScratchCard[];
+  predictions: PredictionData[];
+  trends: TrendData[];
   userLocation: { lat: number; lng: number } | null;
   govLocation: { lat: number; lng: number } | null;
   hasCompletedSetup: boolean;
@@ -49,14 +53,21 @@ interface AppState {
   createUser: (userData: Omit<User, 'id' | 'reports' | 'points' | 'createdAt'>) => void;
   createGovUser: (userData: Omit<GovUser, 'id' | 'createdAt'>) => void;
   addReport: (report: Omit<Report, 'id' | 'userName' | 'createdAt' | 'upvotes' | 'downvotes' | 'verified' | 'fixingStatus'>) => void;
+  addTextReport: (report: Omit<TextReport, 'id' | 'userName' | 'createdAt' | 'upvotes' | 'downvotes' | 'verified' | 'fixingStatus' | 'type'>) => void;
   deleteReport: (reportId: string) => void;
   updateReport: (reportId: string, updates: Partial<Report>) => void;
   voteReport: (reportId: string, vote: 'up' | 'down') => void;
+  voteTextReport: (reportId: string, vote: 'up' | 'down') => void;
   updateUserProfile: (updates: Partial<Omit<User, 'id' | 'reports' | 'points' | 'createdAt'>>) => void;
   updateGovProfile: (updates: Partial<Omit<GovUser, 'id' | 'createdAt'>>) => void;
   setUserLocation: (location: { lat: number; lng: number } | null) => void;
   setGovLocation: (location: { lat: number; lng: number } | null) => void;
   getBadge: (points: number) => Badge;
+  createScratchCard: (userId: string) => void;
+  revealScratchCard: (cardId: string) => void;
+  checkHighPriorityReports: () => void;
+  generatePredictions: (location: { lat: number; lng: number }) => Promise<void>;
+  getNearbyReports: (location: { lat: number; lng: number }, radius: number) => (Report | TextReport)[];
 
   // Note: Database API methods removed - using localStorage only
 }
@@ -156,6 +167,10 @@ export const useAppStore = create(
       currentUser: null,
       govUser: null,
       reports: [],
+      textReports: [],
+      scratchCards: [],
+      predictions: [],
+      trends: [],
       userLocation: null,
       govLocation: null,
       hasCompletedSetup: false,
@@ -821,6 +836,174 @@ export const useAppStore = create(
         return 'none';
       },
 
+      addTextReport: (reportData: Omit<TextReport, 'id' | 'userName' | 'createdAt' | 'upvotes' | 'downvotes' | 'verified' | 'fixingStatus'>) => set((state) => {
+        if (!state.currentUser) return state;
+
+        const newReport: TextReport = {
+          ...reportData,
+          id: crypto.randomUUID(),
+          userName: state.currentUser.name,
+          userId: state.currentUser.id,
+          createdAt: new Date().toISOString(),
+          upvotes: 0,
+          downvotes: 0,
+          upvotedBy: [],
+          downvotedBy: [],
+          status: 'active',
+          verified: 'pending',
+          fixingStatus: 'pending',
+          reportCount: 1,
+          priority: reportData.severity === 'high' ? 'high' : 'normal',
+          verified: 'pending',
+          fixingStatus: 'pending',
+          type: 'text',
+          ...reportData,
+        };
+
+        return {
+          textReports: [newReport, ...state.textReports],
+        };
+      }),
+
+      voteTextReport: (reportId: string, vote: 'up' | 'down') => {
+        const currentUser = get().currentUser;
+        if (!currentUser) return;
+
+        set((state: any) => ({
+          textReports: state.textReports.map((report: any) => {
+            if (report.id !== reportId) return report;
+
+            const hasUpvoted = report.upvotedBy?.includes(currentUser.id) || false;
+            const hasDownvoted = report.downvotedBy?.includes(currentUser.id) || false;
+
+            if (vote === 'up') {
+              if (hasUpvoted) {
+                return {
+                  ...report,
+                  upvotes: Math.max(0, report.upvotes - 1),
+                  upvotedBy: report.upvotedBy?.filter((id: any) => id !== currentUser.id) || []
+                };
+              } else {
+                return {
+                  ...report,
+                  upvotes: report.upvotes + 1,
+                  downvotes: hasDownvoted ? Math.max(0, report.downvotes - 1) : report.downvotes,
+                  upvotedBy: [...(report.upvotedBy || []), currentUser.id],
+                  downvotedBy: hasDownvoted
+                    ? report.downvotedBy?.filter((id: any) => id !== currentUser.id) || []
+                    : report.downvotedBy || []
+                };
+              }
+            } else {
+              if (hasDownvoted) {
+                return {
+                  ...report,
+                  downvotes: Math.max(0, report.downvotes - 1),
+                  downvotedBy: report.downvotedBy?.filter((id: any) => id !== currentUser.id) || []
+                };
+              } else {
+                return {
+                  ...report,
+                  downvotes: report.downvotes + 1,
+                  upvotes: hasUpvoted ? Math.max(0, report.upvotes - 1) : report.upvotes,
+                  downvotedBy: [...(report.downvotedBy || []), currentUser.id],
+                  upvotedBy: hasUpvoted
+                    ? report.upvotedBy?.filter((id: any) => id !== currentUser.id) || []
+                    : report.upvotedBy || []
+                };
+              }
+            }
+          })
+        }));
+      },
+
+      createScratchCard: (userId: string) => set((state: any) => {
+        const rewards: {
+          type: 'discount' | 'coupon' | 'badge' | 'charity';
+          value: string;
+          description: string;
+        }[] = [
+          { type: 'discount', value: '10%', description: '10% off at local restaurants' },
+          { type: 'coupon', value: 'FREE', description: 'Free coffee at partner cafes' },
+          { type: 'badge', value: 'HERO', description: 'Community Hero Badge' },
+          { type: 'charity', value: '$5', description: '$5 donated to local charity' },
+        ];
+        
+        const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+        
+        const newCard: ScratchCard = {
+          id: `scratch-${Date.now()}`,
+          userId,
+          isRevealed: false,
+          reward: randomReward,
+          createdAt: new Date(),
+        };
+
+        return {
+          scratchCards: [...state.scratchCards, newCard],
+        };
+      }),
+
+      revealScratchCard: (cardId: string) => set((state: any) => ({
+        scratchCards: state.scratchCards.map((card: any) =>
+          card.id === cardId ? { ...card, isRevealed: true } : card
+        ),
+      })),
+
+      checkHighPriorityReports: () => set((state: any) => {
+        const REPORT_COUNT_THRESHOLD = 3;
+        
+        const updatedReports = state.reports.map((report: any) => {
+          const nearbyReports = state.reports.filter((r: any) => {
+            if (r.id === report.id) return false;
+            const distance = Math.sqrt(
+              Math.pow((report.location.lat - r.location.lat) * 111000, 2) +
+              Math.pow((report.location.lng - r.location.lng) * 111000, 2)
+            );
+            return distance <= 100; // 100 meters
+          });
+          
+          const isHighPriority = nearbyReports.length >= REPORT_COUNT_THRESHOLD - 1;
+          return {
+            ...report,
+            reportCount: nearbyReports.length + 1,
+            isHighPriority,
+          };
+        });
+
+        return { reports: updatedReports };
+      }),
+
+      generatePredictions: async (location: { lat: number; lng: number }) => {
+        // Mock prediction generation - in real app, this would call Gemini API
+        const mockPredictions: PredictionData[] = [
+          {
+            location,
+            predictedSeverity: 'medium',
+            confidence: 0.75,
+            factors: ['Heavy traffic', 'Recent rainfall', 'Road age'],
+            timeframe: 'Next 30 days',
+          },
+        ];
+        
+        set((state: any) => ({
+          predictions: [...state.predictions, ...mockPredictions],
+        }));
+      },
+
+      getNearbyReports: (location: { lat: number; lng: number }, radius: number) => {
+        const state = get();
+        const allReports = [...state.reports, ...state.textReports];
+        
+        return allReports.filter((report: any) => {
+          const distance = Math.sqrt(
+            Math.pow((location.lat - report.location.lat) * 111, 2) +
+            Math.pow((location.lng - report.location.lng) * 111, 2)
+          );
+          return distance <= radius;
+        });
+      },
+
       // Note: Database API methods removed - using localStorage only
 
     }),
@@ -830,6 +1013,10 @@ export const useAppStore = create(
         authenticatedUsers: state.authenticatedUsers,
         userEmail: state.userEmail,
         reports: state.reports,
+        textReports: state.textReports,
+        scratchCards: state.scratchCards,
+        predictions: state.predictions,
+        trends: state.trends,
         notifications: state.notifications,
       }) as any,
       merge: (persistedState: any, currentState: any) => ({
@@ -849,6 +1036,16 @@ export const useAppStore = create(
             ...report,
             createdAt: new Date(report.createdAt), // Ensure createdAt is a Date object
           })),
+        textReports: (persistedState?.textReports || []).map((report: any) => ({
+          ...report,
+          createdAt: new Date(report.createdAt),
+        })),
+        scratchCards: (persistedState?.scratchCards || []).map((card: any) => ({
+          ...card,
+          createdAt: new Date(card.createdAt),
+        })),
+        predictions: persistedState?.predictions || [],
+        trends: persistedState?.trends || [],
         // Ensure notifications have proper Date objects too
         notifications: (persistedState?.notifications || []).map((notif: any) => ({
           ...notif,

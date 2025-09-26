@@ -21,6 +21,8 @@ import time
 from collections import defaultdict
 import logging
 from email_service import EmailService
+from sms_service import SMSService
+from predictive_analytics import PredictiveAnalytics
 
 # Note: Database imports removed - using localStorage only
 
@@ -89,7 +91,7 @@ if config['GEMINI_API_KEY']:
         gemini_model = genai.GenerativeModel('gemini-1.5-flash')
         # Initialize fallback model
         try:
-            gemini_fallback_model = genai.GenerativeModel('gemini-1.0-pro-vision-latest')
+            gemini_fallback_model = genai.GenerativeModel('gemini-1.5-pro')
             print("✅ Gemini AI initialized with fallback model")
         except Exception as e:
             print(f"⚠️ Fallback model not available: {e}")

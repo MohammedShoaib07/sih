@@ -42,12 +42,6 @@ const LandingPage: React.FC = () => {
                   >
                     Get Started
                   </Link>
-                  <a
-                    href="#features"
-                    className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 font-medium shadow-sm transition-colors"
-                  >
-                    Learn More
-                  </a>
                 </div>
               </div>
 
@@ -67,31 +61,12 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Features */}
-        <section id="features" className="bg-white border-t border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Citizen-first</h3>
-                <p className="mt-2 text-sm text-gray-600">Simple reporting flow, instant location detection, and visual status updates.</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Smart for government</h3>
-                <p className="mt-2 text-sm text-gray-600">Prioritize by severity, track progress, and manage responses in one place.</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Modern & responsive</h3>
-                <p className="mt-2 text-sm text-gray-600">Built for mobile and desktop with smooth, accessible UI.</p>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} FixMyPothole.AI · developed by TEAM AURACODE
+        TEAM AURACODE
         </div>
       </footer>
     </div>
